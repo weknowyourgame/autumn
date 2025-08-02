@@ -31,7 +31,9 @@ function FilterButton() {
       <RenderFilterTrigger />
       <DropdownMenuContent className="w-56" align="start">
         <FilterStatus />
+        <DropdownMenuSeparator />
         <ProductStatus />
+        <DropdownMenuSeparator />
         <ProductVersionFilter />
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
@@ -59,8 +61,7 @@ export default FilterButton;
 export const FilterStatus = () => {
   const { filters, setFilters } = useCustomersContext();
 
-  const statuses: string[] = ["canceled", "free_trial"];
-
+  const statuses: string[] = ["canceled", "free_trial", "expired"];
   const selectedStatuses = filters.status || [];
 
   const toggleStatus = (status: string) => {
@@ -74,11 +75,29 @@ export const FilterStatus = () => {
     setFilters({ ...filters, status: updated });
   };
 
+  const selectAllStatuses = () => {
+    // "select all" means clear the filter (show all)
+    setFilters({ ...filters, status: [] });
+  };
+
+  const noFilterApplied = selectedStatuses.length === 0;
+
   return (
     <DropdownMenuGroup>
-      <DropdownMenuLabel className="text-t3 !font-regular text-xs">
-        Status
-      </DropdownMenuLabel>
+      <div className="flex items-center justify-between px-2 py-1.5">
+        <DropdownMenuLabel className="text-t3 !font-regular text-xs p-0">
+          Status
+        </DropdownMenuLabel>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={selectAllStatuses}
+          className="h-6 px-2 py-0 text-xs text-t3 hover:bg-stone-100"
+          disabled={noFilterApplied}
+        >
+          Select all
+        </Button>
+      </div>
       {statuses.map((status: any) => {
         const isActive = selectedStatuses.includes(status);
         return (
@@ -97,31 +116,52 @@ export const FilterStatus = () => {
 };
 
 export const ProductVersionFilter = () => {
-  const { versionCounts, products } = useCustomersContext();
+  const { versionCounts } = useCustomersContext();
   const [searchParams] = useSearchParams();
   const setSearchParams = useSetSearchParams();
   const selectedProductId = searchParams.get("product_id");
   if (!selectedProductId) return null;
+
   const versionCount = versionCounts?.[selectedProductId] || 1;
   const currentVersion = searchParams.get("version");
   const versionOptions = Array.from({ length: versionCount }, (_, i) => i + 1);
+
+  const selectVersion = (version: number) => {
+    if (currentVersion === String(version)) {
+      setSearchParams({ version: "" });
+    } else {
+      setSearchParams({ version: String(version) });
+    }
+  };
+
+  const selectAllVersions = () => {
+    setSearchParams({ version: "" });
+  };
+
+  const noFilterApplied = !currentVersion;
+
   return (
     <DropdownMenuGroup>
-      <DropdownMenuLabel className="text-t3 !font-regular text-xs">
-        Version
-      </DropdownMenuLabel>
+      <div className="flex items-center justify-between px-2 py-1.5">
+        <DropdownMenuLabel className="text-t3 !font-regular text-xs p-0">
+          Version
+        </DropdownMenuLabel>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={selectAllVersions}
+          className="h-6 px-2 py-0 text-xs text-t3 hover:bg-stone-100"
+          disabled={noFilterApplied}
+        >
+          Select all
+        </Button>
+      </div>
       {versionOptions.map((version) => {
-        const isActive = String(currentVersion) === String(version);
+        const isActive = currentVersion === String(version);
         return (
           <DropdownMenuItem
             key={version}
-            onClick={() => {
-              if (isActive) {
-                setSearchParams({ version: "" });
-              } else {
-                setSearchParams({ version: String(version) });
-              }
-            }}
+            onClick={() => selectVersion(version)}
             className="flex items-center justify-between cursor-pointer text-sm"
           >
             v{version}
@@ -138,23 +178,43 @@ export const ProductStatus = () => {
   const setSearchParams = useSetSearchParams();
   const [searchParams] = useSearchParams();
   const selectedProductId = searchParams.get("product_id");
+
+  const selectProduct = (productId: string) => {
+    if (selectedProductId === productId) {
+      setSearchParams({ product_id: "", version: "" });
+    } else {
+      setSearchParams({ product_id: productId, version: "" });
+    }
+  };
+
+  const selectAllProducts = () => {
+    setSearchParams({ product_id: "", version: "" });
+  };
+
+  const noFilterApplied = !selectedProductId;
+
   return (
     <DropdownMenuGroup>
-      <DropdownMenuLabel className="text-t3 !font-regular text-xs">
-        Product
-      </DropdownMenuLabel>
+      <div className="flex items-center justify-between px-2 py-1.5">
+        <DropdownMenuLabel className="text-t3 !font-regular text-xs p-0">
+          Product
+        </DropdownMenuLabel>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={selectAllProducts}
+          className="h-6 px-2 py-0 text-xs text-t3 hover:bg-stone-100"
+          disabled={noFilterApplied}
+        >
+          Select all
+        </Button>
+      </div>
       {products.map((product: any) => {
         const isActive = selectedProductId === product.id;
         return (
           <DropdownMenuItem
             key={product.id}
-            onClick={() => {
-              if (isActive) {
-                setSearchParams({ product_id: "", version: "" });
-              } else {
-                setSearchParams({ product_id: product.id, version: "" });
-              }
-            }}
+            onClick={() => selectProduct(product.id)}
             className="flex items-center justify-between cursor-pointer"
           >
             {product.name}
