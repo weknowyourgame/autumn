@@ -69,6 +69,9 @@ export class CusSearchService {
             isNotNull(customerProducts.free_trial_id),
           )
         : undefined,
+      filters.status === "expired"
+        ? eq(customerProducts.status, CusProductStatus.Expired)
+        : undefined,
     );
 
     let cusFilter = and(
