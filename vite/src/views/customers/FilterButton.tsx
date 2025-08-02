@@ -209,6 +209,15 @@ export const ProductStatus = () => {
           Select all
         </Button>
       </div>
+      <DropdownMenuItem
+        onClick={() => selectProduct("none")}
+        className="flex items-center justify-between cursor-pointer"
+      >
+        <span className="text-t3">None</span>
+        {selectedProductId === "none" && (
+          <Check size={13} className="text-t3" />
+        )}
+      </DropdownMenuItem>
       {products.map((product: any) => {
         const isActive = selectedProductId === product.id;
         return (

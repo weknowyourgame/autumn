@@ -2,7 +2,7 @@ import { DrizzleCli } from "@/db/initDrizzle.js";
 
 import { AppEnv, customers, CusProductStatus } from "@autumn/shared";
 
-import { and, desc, eq, ilike, or, lt, isNotNull, gt, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, or, lt, isNotNull, isNull, gt, sql } from "drizzle-orm";
 import { customerProducts, products } from "@autumn/shared";
 
 const customerFields = {
@@ -30,6 +30,76 @@ const productFields = {
 };
 
 export class CusSearchService {
+  static async searchCustomersWithNoProducts({
+    db,
+    orgId,
+    env,
+    search,
+    pageSize = 50,
+    lastItem,
+  }: {
+    db: DrizzleCli;
+    orgId: string;
+    env: AppEnv;
+    search: string;
+    pageSize?: number;
+    lastItem?: { created_at: string; name: string; internal_id: string } | null;
+  }) {
+    let cusFilter = and(
+      eq(customers.org_id, orgId),
+      eq(customers.env, env),
+      search
+        ? or(
+            ilike(customers.id, `%${search}%`),
+            ilike(customers.name, `%${search}%`),
+            ilike(customers.email, `%${search}%`),
+          )
+        : undefined,
+    );
+
+    const [results, totalCountResult] = await Promise.all([
+      db
+        .select(customerFields)
+        .from(customers)
+        .leftJoin(
+          customerProducts,
+          eq(customers.internal_id, customerProducts.internal_customer_id),
+        )
+        .where(
+          and(
+            cusFilter,
+            isNull(customerProducts.internal_customer_id),
+            lastItem && lastItem.internal_id
+              ? lt(customers.internal_id, lastItem.internal_id)
+              : undefined,
+          ),
+        )
+        .orderBy(desc(customers.internal_id))
+        .limit(pageSize),
+
+      db
+        .select({
+          count: sql<number>`count(*)`.as("count"),
+        })
+        .from(customers)
+        .leftJoin(
+          customerProducts,
+          eq(customers.internal_id, customerProducts.internal_customer_id),
+        )
+        .where(and(cusFilter, isNull(customerProducts.internal_customer_id))),
+    ]);
+
+    const totalCount = totalCountResult[0]?.count || 0;
+
+    const formattedResults = results.map((customer) => ({
+      ...customer,
+      created_at: Number(customer.created_at),
+      customer_products: [], // No products
+    }));
+
+    return { data: formattedResults, count: totalCount };
+  }
+
   static async searchByProduct({
     db,
     orgId,
@@ -54,7 +124,7 @@ export class CusSearchService {
     );
 
     let filtersDrizzle = and(
-      filters.product_id
+      filters.product_id && filters.product_id !== "none"
         ? eq(customerProducts.product_id, filters.product_id)
         : undefined,
       filters.version
@@ -182,6 +252,18 @@ export class CusSearchService {
     pageSize?: number;
     pageNumber: number;
   }) {
+    // Handle "none" filter
+    if (filters?.product_id === "none") {
+      return await this.searchCustomersWithNoProducts({
+        db,
+        orgId,
+        env,
+        search,
+        pageSize,
+        lastItem,
+      });
+    }
+
     if (filters?.product_id || filters?.status) {
       return await this.searchByProduct({
         db,
